@@ -1,7 +1,8 @@
-//  RelayShieldDemoCode.pde  to control seeed relay shield by arduino.
 //  Copyright (c) 2010 seeed technology inc.
 //  Author: Steve Chang
-//  Version: september 2, 2010
+//  Date: September 2, 2010
+//  Author: Brian Fiegel
+//  Date: May 22. 2014
 //
 //  This library is free software; you can redistribute it and/or
 //  modify it under the terms of the GNU Lesser General Public
@@ -17,8 +18,27 @@
 //  License along with this library; if not, write to the Free Software
 //  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-unsigned int  presenseCounter = 0;
-unsigned char relayPin[4] = {7};//4,5,6,7};
+#include <avr/wdt.h>
+
+#define numberof(x) (sizeof((x))/sizeof 0[(x)])
+
+#define ENABLE_DELAY_MS    (60 * 1000)
+#define ENABLE_DISTANCE_CM (10)
+#define ENABLE_PRESENCE_COUNTER_RESET (10)
+#define ENABLE_PRESENCE_COUNTER_INIT (0)
+
+#define TRIGGER_DISTANCE_CM (30)
+#define TRIGGER_PRESENCE_COUNTER_RESET (100)
+#define TRIGGER_PRESENCE_COUNTER_INIT (0)
+
+#define TRIGGER_ABSENCE_COUNTER_RESET (10)
+#define TRIGGER_ABSENCE_COUNTER_INIT (100)/* Initially assume that nothing has been around */
+
+unsigned long enableStartTime;
+unsigned int  enablePresenceCounter  = ENABLE_PRESENCE_COUNTER_INIT;
+unsigned int  triggerPresenceCounter = TRIGGER_PRESENCE_COUNTER_INIT;
+unsigned int  triggerAbsenceCounter  = TRIGGER_ABSENCE_COUNTER_INIT;
+unsigned char relayPin[] = {7};
 
 class Ultrasonic
 {
@@ -58,7 +78,8 @@ long Ultrasonic::microsecondsToInches(void)
 	return duration/74/2;	
 }
 
-Ultrasonic ultrasonic(9);
+Ultrasonic enableUltrasonic(10);
+Ultrasonic triggerUltrasonic(9);
 
 void setup()
 {
@@ -66,54 +87,99 @@ void setup()
   
   Serial.begin(115200);
   
-  for(i = 0; i < 4; i++)
+  for(i = 0; i < numberof(relayPin); ++i)
   {
     pinMode(relayPin[i],OUTPUT);
     digitalWrite(relayPin[i],LOW);
   }
+  
+  enableStartTime = millis();
+  wdt_enable (WDTO_2S);  // reset after two seconds, if no "pat the dog" received
 }
 
 void loop()
 {
-
+  unsigned long time;
+  
   int i=0;
-  long RangeInInches;
-  long RangeInCentimeters;
+  long EnableRangeInCentimeters, TriggerRangeInCentimeters;
   
-  ultrasonic.DistanceMeasure();// get the current signal time;
-  RangeInInches = ultrasonic.microsecondsToInches();//convert the time to inches;
-  RangeInCentimeters = ultrasonic.microsecondsToCentimeters();//convert the time to centimeters
-  Serial.println("The distance to obstacles in front is: ");
-  Serial.print(RangeInInches);//0~157 inches
-  Serial.println(" inch");
-  Serial.print(RangeInCentimeters);//0~400cm
+  wdt_reset ();
+  enableUltrasonic.DistanceMeasure();
+  triggerUltrasonic.DistanceMeasure();
+  EnableRangeInCentimeters = enableUltrasonic.microsecondsToCentimeters();//convert the time to centimeters
+  TriggerRangeInCentimeters = triggerUltrasonic.microsecondsToCentimeters();//convert the time to centimeters
+  Serial.print("Distance to enable object: ");
+  Serial.print(EnableRangeInCentimeters);//0~400cm
   Serial.println(" cm");
-  Serial.print(presenseCounter);
-  Serial.println(" Counts");
+  Serial.print("Distance to trigger object: ");
+  Serial.print(EnableRangeInCentimeters);//0~400cm
+  Serial.println(" cm");
+  Serial.print("Enable Counts: ");
+  Serial.println(enablePresenceCounter);
+  Serial.print("Trigger Counts: ");
+  Serial.println(triggerPresenceCounter);
+
   delay(10);
-  
-  if (RangeInInches <= 48)
+  if (EnableRangeInCentimeters <= ENABLE_DISTANCE_CM)
   {
-    presenseCounter = 100;
-    for(i = 0; i < 4; i++)
+    if(0 == enablePresenceCounter)
     {
-      digitalWrite(relayPin[i],HIGH);
-      delay(20); //delay between turning on each relay, 200 milliseconds
+      time = millis();
+  
+      if (time < enableStartTime) 
+      {
+        enableStartTime = 0;
+      }
+      
+      if (time > enableStartTime)
+      {
+        if (TriggerRangeInCentimeters <= TRIGGER_DISTANCE_CM)
+        {
+          if (0 == triggerAbsenceCounter)
+          {
+            triggerPresenceCounter = TRIGGER_PRESENCE_COUNTER_RESET;
+            for(i = 0; i < numberof(relayPin); i++)
+            {
+              digitalWrite(relayPin[i],HIGH);
+              delay(20); //delay between turning on each relay, 20 milliseconds
+            }
+          }
+          else
+          {
+            --triggerAbsenceCounter; 
+          }
+        }
+        else
+        {
+          if (0 == triggerPresenceCounter)
+          {
+            triggerAbsenceCounter = TRIGGER_ABSENCE_COUNTER_RESET;
+            for(i = 0; i < numberof(relayPin); i++)
+            {
+              digitalWrite(relayPin[i],LOW);
+              delay(20); //delay between turning off each relay, 20 milliseconds
+            }
+          } 
+          else
+          {
+            --triggerPresenceCounter; 
+          }
+        }
+      }
+      else
+      {
+        
+      }
+    }
+    else
+    {
+      --enablePresenceCounter;
     }
   }
   else
   {
-    if (0 == presenseCounter)
-    {
-      for(i = 0; i < 4; i++)
-      {
-        digitalWrite(relayPin[i],LOW);
-        delay(20); //delay between turning off each relay, 200 milliseconds
-      }
-    } 
-    else
-    {
-      --presenseCounter; 
-    }
+    enableStartTime       = 0;
+    enablePresenceCounter = ENABLE_PRESENCE_COUNTER_RESET;
   }  
 }
