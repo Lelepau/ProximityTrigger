@@ -22,6 +22,8 @@
 
 #define numberof(x) (sizeof((x))/sizeof 0[(x)])
 
+#define PHOTO_RESISTOR_PIN A0
+
 #define ENABLE_DELAY_MS    (60 * 1000)
 #define ENABLE_DISTANCE_CM (10)
 #define ENABLE_PRESENCE_COUNTER_RESET (10)
@@ -100,11 +102,13 @@ void setup()
 void loop()
 {
   unsigned long time;
+  int      lightLevel;
   
   int i=0;
   long EnableRangeInCentimeters, TriggerRangeInCentimeters;
   
   wdt_reset ();
+  lightLevel = analogRead(PHOTO_RESISTOR_PIN); 
   enableUltrasonic.DistanceMeasure();
   triggerUltrasonic.DistanceMeasure();
   EnableRangeInCentimeters = enableUltrasonic.microsecondsToCentimeters();//convert the time to centimeters
@@ -121,7 +125,7 @@ void loop()
   Serial.println(triggerPresenceCounter);
 
   delay(10);
-  if (EnableRangeInCentimeters <= ENABLE_DISTANCE_CM)
+  if ((EnableRangeInCentimeters <= ENABLE_DISTANCE_CM) || (lightLevel > 500))
   {
     if(0 == enablePresenceCounter)
     {
