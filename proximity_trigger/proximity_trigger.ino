@@ -20,6 +20,8 @@
 
 #include <avr/wdt.h>
 
+#define ENABLED_LED_PIN 13
+
 #define USE_ENABLE_ULTRASONIC_SENSOR 0
 #define USE_ENABLE_LIGHT_SENSOR      1
 #define numberof(x) (sizeof((x))/sizeof 0[(x)])
@@ -28,7 +30,7 @@
 #define PHOTO_RESISTOR_PIN A0
 #endif
 
-#define ENABLE_DELAY_MS    (1 * 60 * 1000)
+#define ENABLE_DELAY_MS    (((unsigned long)1 * 60 * 1000))
 #define ENABLE_DISTANCE_CM (10)
 #define ENABLE_PRESENCE_COUNTER_RESET (100)
 #define ENABLE_PRESENCE_COUNTER_INIT (100)
@@ -40,7 +42,7 @@
 #define TRIGGER_ABSENCE_COUNTER_RESET (10)
 #define TRIGGER_ABSENCE_COUNTER_INIT (100)/* Initially assume that nothing has been around */
 
-unsigned long enableStartTime;
+unsigned long enableStartTime        = 1;
 unsigned int  enablePresenceCounter  = ENABLE_PRESENCE_COUNTER_INIT;
 unsigned int  triggerPresenceCounter = TRIGGER_PRESENCE_COUNTER_INIT;
 unsigned int  triggerAbsenceCounter  = TRIGGER_ABSENCE_COUNTER_INIT;
@@ -101,7 +103,9 @@ void setup()
     digitalWrite(triggerPin[i],LOW);
   }
   
-  enableStartTime = millis();
+  pinMode(ENABLED_LED_PIN,OUTPUT);
+  digitalWrite(ENABLED_LED_PIN,LOW);
+  enableStartTime = 1;
   wdt_enable (WDTO_2S);  // reset after two seconds, if no "pat the dog" received
 }
 
@@ -162,6 +166,8 @@ void loop()
 #if USE_ENABLE_LIGHT_SENSOR
   Serial.print("Light Level is: ");
   Serial.println(lightLevel);
+  Serial.print("Enable Counts: ");
+  Serial.println(enablePresenceCounter);  
 #endif
   Serial.print("Distance to trigger object: ");
   Serial.print(TriggerRangeInCentimeters);//0~400cm
@@ -178,7 +184,7 @@ void loop()
 # if USE_ENABLE_ULTRASONIC_SENSOR
   (EnableRangeInCentimeters <= ENABLE_DISTANCE_CM)
 # elif USE_ENABLE_LIGHT_SENSOR
-  (lightLevel < 100)
+  (lightLevel < 200)
 # else
   0
 # endif
@@ -187,6 +193,7 @@ void loop()
   {
     if(0 == enablePresenceCounter)
     {
+      
       time = millis();
   
       if (time < enableStartTime) 
@@ -196,6 +203,7 @@ void loop()
       
       if (time > (enableStartTime + ENABLE_DELAY_MS))
       {
+        digitalWrite(ENABLED_LED_PIN,HIGH);
         if (TriggerRangeInCentimeters <= TRIGGER_DISTANCE_CM)
         {
           /* under the trigger threshold, set the trigger once this condition appears stable */
@@ -225,16 +233,19 @@ void loop()
       }
       else
       {
-        /* Don't do anything until enabled for specified time period */  
+        /* Don't do anything until enabled for specified time period */
+        digitalWrite(ENABLED_LED_PIN,LOW);  
       }
     }
     else
     {
+      digitalWrite(ENABLED_LED_PIN,LOW);
       --enablePresenceCounter;
     }
   }
   else
   {
+    digitalWrite(ENABLED_LED_PIN,LOW);
     resetTrigger();
     enableStartTime       = millis();
     enablePresenceCounter = ENABLE_PRESENCE_COUNTER_RESET;
