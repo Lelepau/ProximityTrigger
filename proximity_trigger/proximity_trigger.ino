@@ -30,12 +30,12 @@
 #define PHOTO_RESISTOR_PIN A0
 #endif
 
-#define ENABLE_DELAY_MS    (((unsigned long)1 * 60 * 1000))
+#define ENABLE_DELAY_MS    (((unsigned long)1 * 10 * 1000))
 #define ENABLE_DISTANCE_CM (10)
 #define ENABLE_PRESENCE_COUNTER_RESET (100)
 #define ENABLE_PRESENCE_COUNTER_INIT (100)
 
-#define TRIGGER_DISTANCE_CM (20)
+#define TRIGGER_DISTANCE_CM (6)
 #define TRIGGER_PRESENCE_COUNTER_RESET (5)
 #define TRIGGER_PRESENCE_COUNTER_INIT (0)
 
@@ -184,7 +184,7 @@ void loop()
 # if USE_ENABLE_ULTRASONIC_SENSOR
   (EnableRangeInCentimeters <= ENABLE_DISTANCE_CM)
 # elif USE_ENABLE_LIGHT_SENSOR
-  (lightLevel < 200)
+  (lightLevel < 500)
 # else
   0
 # endif
